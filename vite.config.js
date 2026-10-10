@@ -19,6 +19,10 @@ export default defineConfig({
         },
     },
     server: {
+        // Brave bloquea 0.0.0.0; el hot file debe apuntar a localhost.
+        origin: 'http://localhost:5173',
+        cors: true,
+        hmr: { host: 'localhost' },
         watch: {
             ignored: ['**/storage/framework/views/**'],
         },
