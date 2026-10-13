@@ -1,0 +1,57 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam actorStyle awesome
+
+title ASII-25 — Casos de uso de QA, pruebas E2E, CI y gestión de versiones
+
+actor "QA Engineer" as QA
+actor "Desarrollador" as Dev
+actor "CI Runner\n(GitHub Actions)" as CI
+actor "Release Manager / Lead" as Lead
+
+rectangle "ASII-25 — QA, Pruebas E2E, CI y Gestión de Versiones" {
+  usecase "UC-01\nPlanificar matriz\nde pruebas" as UC01
+  usecase "UC-02\nEjecutar análisis\nestático y linting" as UC02
+  usecase "UC-03\nEjecutar pruebas unitarias\ny de base de datos" as UC03
+  usecase "UC-04\nEjecutar suite de\npruebas E2E clínicas" as UC04
+  usecase "UC-05\nEvaluar umbrales de\nQuality Gates" as UC05
+  usecase "UC-06\nPreservar evidencia\ninmutable de ejecución" as UC06
+  usecase "UC-07\nBloquear pull request\ny reportar fallos" as UC07
+  usecase "UC-08\nDictaminar aprobación\nde PR y autorizar merge" as UC08
+  usecase "UC-09\nGenerar Release Tagging\nsemántico (vX.Y.Z)" as UC09
+  usecase "UC-10\nAuditar trazabilidad\nhistórica de calidad" as UC10
+}
+
+QA --> UC01
+Dev --> UC07
+CI --> UC02
+CI --> UC03
+CI --> UC04
+CI --> UC05
+CI --> UC06
+CI --> UC07
+Lead --> UC08
+Lead --> UC09
+QA --> UC10
+Lead --> UC10
+
+UC05 ..> UC02 : <<include>>
+UC05 ..> UC03 : <<include>>
+UC05 ..> UC04 : <<include>>
+UC05 ..> UC06 : <<include>>
+UC07 ..> UC05 : <<extend>>
+UC08 ..> UC05 : <<include>>
+UC08 ..> UC06 : <<include>>
+UC09 ..> UC08 : <<include>>
+UC10 ..> UC06 : <<include>>
+
+note bottom of UC05
+Quality Gate central:
+- Cobertura mínima >= 80%
+- Cero fallos críticos
+- 100% pruebas E2E aprobadas
+- Linting estricto 0 errores
+end note
+@enduml
