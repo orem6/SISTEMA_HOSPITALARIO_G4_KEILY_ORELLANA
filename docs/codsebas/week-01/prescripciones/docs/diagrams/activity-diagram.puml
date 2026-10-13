@@ -1,0 +1,50 @@
+@startuml
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor White
+  BorderColor Black
+}
+title ASII-15 — Actividad de creación de prescripción con validación de alergias
+
+start
+:ACT-PRE-01\nIniciar creación de prescripción médica;
+repeat
+  :ACT-PRE-02\nSeleccionar paciente, episodio, medicamento y posología;
+  :ACT-CHK-01\nInvocar verificación sincrónica de alergias;
+  if (¿Servicio AllergyCheckService disponible?) then (Sí)
+    :ACT-CHK-02\nConsultar registro histórico de alergias del paciente;
+    if (¿Paciente cuenta con evaluación previa de alergias?) then (Sí)
+      :Evaluar reactividad cruzada de alérgenos activos;
+    else (No)
+      :ACT-CHK-03\nAdvertir: Paciente no evaluado en alergias;
+      if (¿Médico confirma continuar prescripción?) then (Sí)
+        :Continuar con advertencia clínica aceptada;
+      else (No)
+        :ACT-EX-03\nCancelar prescripción por falta de evaluación;
+        stop
+      endif
+    endif
+  else (No)
+    :ACT-EX-01\nDetectar fallo de disponibilidad en AllergyCheckService;
+    :ACT-EX-02\nActivar protocolo de contingencia con bloqueo preventivo;
+    stop
+  endif
+
+  if (¿Se detecta alergia coincidente con el fármaco?) then (Sí)
+    :ACT-ALT-01\nEmitir alerta clínica de contraindicación alérgica;
+    if (¿Decisión del médico ante el riesgo detectado?) then (Override Justificado)
+      :ACT-OVR-02\nIngresar motivo clínico justificado obligatorio de override;
+      :Aprobar excepción médica con override;
+    else (Anular o Modificar)
+      :ACT-OVR-01\nAnular fármaco actual y solicitar cambio de prescripción;
+    endif
+  else (No)
+    :Verificación alérgica aprobada sin contraindicación;
+  endif
+repeat while (¿Requiere cambiar o sustituir fármaco?) is (Sí)
+
+:ACT-AUD-01\nRegistrar verificación, advertencias u override en bitácora clínica;
+:ACT-SAV-01\nPersistir prescripción electrónica autorizada en estado activo;
+:ACT-SAV-02\nConfirmar emisión de prescripción al médico;
+stop
+@enduml
