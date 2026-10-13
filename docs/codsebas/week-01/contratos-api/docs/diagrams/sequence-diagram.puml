@@ -1,0 +1,104 @@
+@startuml
+skinparam shadowing false
+hide footbox
+title ASII-24 — Secuencia de publicación, administración y consulta por rol
+
+actor "Admin / Usuario" as User
+boundary "UI Documentación\n[ASII-24]" as UI
+control "API Documentación\n[ASII-24]" as API
+control "JWT / Tenant / RBAC\n[Base HIS]" as Access
+control "Servicio Documentación\n[ASII-24]" as Service
+database "DB Documentación\n[ASII-24]" as DB
+collections "Almacenamiento\n[ASII-24]" as Storage
+
+alt Publicar documento o manual
+  User -> UI : SEQ-PUB-01 Ingresar datos, archivo/ref y roles
+  UI -> API : SEQ-ACC-01 Enviar solicitud con JWT y X-Tenant-ID
+  API -> Access : SEQ-PUB-02 / SEQ-ACC-02 Validar JWT, tenant y Admin
+  alt Autenticación / Tenant / Rol inválido
+    Access --> API : SEQ-EX-01 / SEQ-EX-02 / SEQ-EX-03 Rechazo de acceso
+    API --> UI : Error de acceso; UI --> User : Mostrar rechazo
+  else Acceso autorizado
+    Access --> API : SEQ-ACC-03 Contexto de usuario, tenant y roles
+    API -> Service : SEQ-PUB-03 Validar información de publicación
+    alt Información inválida
+      Service --> API : SEQ-EX-04 Errores de validación
+      API --> UI : Solicitar corrección; UI --> User : Mostrar errores
+    else Información válida
+      Service -> Storage : SEQ-PUB-04 Almacenar archivo o resolver ref
+      alt Fallo de almacenamiento / persistencia
+        Storage --> Service : SEQ-EX-06 Fallo
+        Service --> API : Operación fallida; API --> UI : Error; UI --> User : Informar fallo
+      else Almacenamiento correcto
+        Storage --> Service : Confirmación almacenamiento
+        Service -> DB : SEQ-PUB-05 Registrar metadatos, tenant, roles, versión
+        DB --> Service : Registro exitoso
+        Service --> API : Resultado exitoso
+        API --> UI : SEQ-PUB-06 Confirmación de publicación
+        UI --> User : Mostrar publicación exitosa
+      end
+    end
+  end
+else Actualizar versión
+  User -> UI : SEQ-UPD-01 Seleccionar doc y enviar nueva versión
+  UI -> API : Enviar solicitud con JWT y X-Tenant-ID
+  API -> Access : SEQ-UPD-02 Validar Admin y tenant
+  Access --> API : Contexto autorizado o rechazo (SEQ-EX-01..03)
+  alt Acceso autorizado
+    API -> Service : SEQ-UPD-03 Validar actualización
+    alt Válido
+      Service -> Storage : SEQ-UPD-04 Almacenar nueva versión
+      Service -> DB : SEQ-UPD-05 Registrar actualización
+      Service --> API : SEQ-UPD-06 Confirmación (o SEQ-EX-06 en fallo)
+      API --> UI : Confirmación; UI --> User : Mostrar versión actualizada
+    else Inválido
+      Service --> API : SEQ-EX-04 Errores de validación
+    end
+  end
+else Archivar documento
+  User -> UI : SEQ-ARC-01 Confirmar solicitud de archivo
+  UI -> API : Enviar solicitud con JWT y X-Tenant-ID
+  API -> Access : SEQ-ARC-02 Validar Admin y tenant
+  alt Acceso autorizado
+    API -> Service : Solicitar archivo lógico
+    Service -> DB : SEQ-ARC-03 Marcar documento como archivado
+    DB --> Service : Registro actualizado
+    Service --> API : SEQ-ARC-04 Confirmación de archivo (o SEQ-EX-06)
+    API --> UI : Confirmación; UI --> User : Mostrar documento archivado
+  else Rechazo
+    Access --> API : SEQ-EX-01..03
+  end
+else Consultar, visualizar o descargar
+  User -> UI : SEQ-CON-01 Solicitar lista con filtros
+  UI -> API : SEQ-ACC-01 Enviar JWT y X-Tenant-ID
+  API -> Access : SEQ-CON-02 / SEQ-ACC-02 Validar identidad, tenant y roles
+  alt Acceso autorizado
+    Access --> API : SEQ-ACC-03 Contexto autorizado
+    API -> Service : Solicitar documentos
+    Service -> DB : SEQ-CON-03 Consultar por tenant, estado y roles
+    DB --> Service : Lista autorizada o vacía
+    Service --> API : SEQ-CON-04 Retornar lista
+    API --> UI : SEQ-CON-04; UI --> User : Mostrar documentos
+    opt Selección de documento (Visualizar / Descargar)
+      User -> UI : SEQ-CON-05 Solicitar documento
+      UI -> API : Enviar petición; API -> Access : SEQ-CON-06 Revalidar
+      alt No disponible o no autorizado
+        API --> UI : SEQ-EX-05 Documento no disponible
+      else Autorizado
+        API -> Service : Obtener contenido
+        Service -> Storage : SEQ-CON-07 Recuperar archivo/contenido
+        alt Fallo archivo
+          Storage --> Service : SEQ-EX-06 Fallo almacenamiento
+        else Archivo disponible
+          Storage --> Service : Contenido
+          Service --> API : Documento autorizado
+          API --> UI : SEQ-CON-08 Entregar documento
+          UI --> User : Visualizar o descargar documento
+        end
+      end
+    end
+  else Acceso rechazado
+    Access --> API : SEQ-EX-01 / SEQ-EX-02
+  end
+end
+@enduml
