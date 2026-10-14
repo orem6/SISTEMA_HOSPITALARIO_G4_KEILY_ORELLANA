@@ -1,0 +1,58 @@
+@startuml
+skinparam shadowing false
+hide footbox
+title ASII-25 — Secuencia de pipeline de CI/CD, harness y almacenamiento de evidencia
+
+actor "QA Engineer" as QA
+actor "Desarrollador" as Dev
+control "GitHub Actions\nRunner" as CI
+control "Motor Linting\n(Pint/PHPStan)" as Lint
+database "Harness PostgreSQL\n(Central/Hospital)" as DB
+control "Runner E2E\n(Flujos Clínicos)" as E2E
+control "Validador\nQuality Gate" as QG
+collections "Almacén Evidencias\n(Artifact Storage)" as Storage
+actor "Release Manager\n/ Lead" as Lead
+
+QA -> CI : SEQ-PLN-01 Configurar matriz de pruebas y criterios
+Dev -> CI : SEQ-PLN-02 Abrir PR y disparar pipeline
+
+CI -> Lint : SEQ-LNT-01 Ejecutar análisis estático
+alt Linting fallido
+  Lint --> CI : SEQ-EX-01 Errores de linting detectados
+  CI --> Dev : SEQ-EX-05 Bloquear PR y reportar fallos
+else Linting aprobado
+  Lint --> CI : SEQ-LNT-02 Reporte de linting limpio (0 errores)
+  CI -> DB : SEQ-UNT-01 Inicializar arnés efímero PostgreSQL
+  CI -> DB : SEQ-UNT-02 Ejecutar migraciones y pruebas unitarias
+  alt Fallo de pruebas unitarias o BD
+    DB --> CI : SEQ-EX-02 Error en pruebas unitarias o esquema BD
+    CI --> Dev : SEQ-EX-05 Bloquear PR y reportar fallos
+  else Pruebas unitarias y BD aprobadas
+    DB --> CI : SEQ-UNT-03 Pruebas aprobadas y métricas de cobertura
+    CI -> E2E : SEQ-E2E-01 Ejecutar suites E2E clínicas
+    alt Fallo en pruebas E2E
+      E2E --> CI : SEQ-EX-03 Regresión o fallo en flujo clínico
+      CI --> Dev : SEQ-EX-05 Bloquear PR y reportar fallos
+    else Pruebas E2E exitosas
+      E2E --> CI : SEQ-E2E-02 Flujos clínicos 100% exitosos y videos
+      CI -> QG : SEQ-QG-01 Enviar métricas consolidadas
+      QG -> QG : SEQ-QG-02 Validar políticas (cobertura >= 80%, 0 críticos)
+      alt Incumplimiento de Quality Gate
+        QG --> CI : SEQ-EX-04 Quality Gate rechazado
+        CI --> Dev : SEQ-EX-05 Bloquear PR y reportar incumplimiento
+      else Quality Gate aprobado
+        QG --> CI : SEQ-QG-03 Veredicto favorable de Quality Gate
+        CI -> Storage : SEQ-ART-01 Empaquetar evidencias (JUnit, LCOV, videos)
+        Storage -> Storage : SEQ-ART-02 Generar digest SHA-256 inmutable
+        Storage --> CI : SEQ-ART-03 Confirmación de custodia inmutable y URI
+        CI --> Lead : SEQ-REL-01 Notificar Quality Gate superado y PR listo
+        Lead -> CI : SEQ-REL-02 Dictaminar aprobación y autorizar merge
+        opt Integración a rama de release main
+          Lead -> CI : SEQ-REL-03 Solicitar emisión de release tag (vX.Y.Z)
+          CI --> Lead : Release tag semántico inmutable emitido
+        end
+      end
+    end
+  end
+end
+@enduml
