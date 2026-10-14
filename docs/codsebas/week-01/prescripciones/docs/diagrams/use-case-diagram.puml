@@ -1,0 +1,56 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam actorStyle awesome
+
+title ASII-15 — Casos de uso de prescripciones electrónicas con validación de alergias
+
+actor "Médico" as Doctor
+actor "Farmacéutico" as Pharmacist
+actor "Enfermera" as Nurse
+actor "Auditor Clínico" as Auditor
+actor "AllergyCheckService\n(Motor de Alergias)" as AllergyService
+actor "AuditService\n(Bitácora Clínica)" as Audit
+
+rectangle "ASII-15 — Prescripciones electrónicas con validación de alergias" {
+  usecase "UC-01\nIniciar creación de\nprescripción médica" as UC01
+  usecase "UC-02\nSeleccionar medicamento\ny posología" as UC02
+  usecase "UC-03\nVerificar alergias\ne interacciones" as UC03
+  usecase "UC-04\nNotificar alerta de\nalergia coincidente" as UC04
+  usecase "UC-05\nAnular o modificar\nprescripción por riesgo" as UC05
+  usecase "UC-06\nRegistrar justificación\nde override clínico" as UC06
+  usecase "UC-07\nGestionar alerta de\npaciente no evaluado" as UC07
+  usecase "UC-08\nManejar excepción por\nfallo de servicio" as UC08
+  usecase "UC-09\nEmitir y persistir\nprescripción electrónica" as UC09
+  usecase "UC-10\nAuditar verificación\ny overrides alérgicos" as UC10
+}
+
+Doctor --> UC01
+Doctor --> UC02
+Doctor --> UC05
+Doctor --> UC06
+Doctor --> UC09
+Pharmacist --> UC09
+Nurse --> UC09
+Auditor --> UC10
+
+AllergyService --> UC03
+Audit --> UC10
+
+UC09 ..> UC01 : <<include>>
+UC09 ..> UC02 : <<include>>
+UC09 ..> UC03 : <<include>>
+UC09 ..> UC10 : <<include>>
+UC03 ..> UC04 : <<extend>>
+UC04 ..> UC06 : <<extend>>
+UC03 ..> UC07 : <<extend>>
+UC03 ..> UC08 : <<extend>>
+UC04 ..> UC05 : <<extend>>
+
+note bottom of UC06
+  Override justificado obligatorio
+  persistido en la tabla clínica
+  prescription_allergy_checks.
+end note
+@enduml

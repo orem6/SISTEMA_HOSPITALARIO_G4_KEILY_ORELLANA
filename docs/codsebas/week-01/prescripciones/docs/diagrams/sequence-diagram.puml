@@ -1,0 +1,64 @@
+@startuml
+skinparam shadowing false
+hide footbox
+title ASII-15 — Secuencia de creación de prescripción con validación de alergias
+
+actor "Médico" as Doctor
+boundary "UI_Prescripciones" as UI
+control "PrescriptionController" as Controller
+control "AllergyCheckService" as CheckService
+database "AllergyRepository" as AllergyRepo
+database "PrescriptionRepository" as PrescRepo
+control "AuditService" as Audit
+
+Doctor -> UI : SEQ-PRE-01 Iniciar prescripción (paciente, episodio, fármaco, posología)
+UI -> Controller : SEQ-PRE-02 Enviar datos de prescripción clínica
+Controller -> CheckService : SEQ-CHK-01 Solicitar verificación de alergias(pacienteId, farmacoId)
+
+alt Fallo de servicio de alergias
+  CheckService --> Controller : SEQ-EX-01 Error / Servicio no disponible
+  Controller --> UI : Error de servicio (fail-safe activado)
+  UI --> Doctor : Notificar bloqueo preventivo por indisponibilidad
+else Servicio disponible
+  CheckService -> AllergyRepo : SEQ-CHK-02 Consultar alergias activas(pacienteId)
+  AllergyRepo --> CheckService : SEQ-CHK-03 Retornar lista de alergias activas
+
+  alt Paciente sin registros de alergias (no evaluado)
+    CheckService --> Controller : SEQ-EX-02 Advertencia de paciente no evaluado
+    Controller --> UI : Alerta informativa: Paciente sin historial alérgico
+    UI --> Doctor : Solicitar confirmación para continuar prescripción
+    Doctor -> UI : Confirmar asunción de riesgo de no evaluado
+    UI -> Controller : Proceder con confirmación médica
+  else Evaluación de reactividad completada
+    CheckService --> Controller : SEQ-CHK-04 Retornar resultado de verificación alérgica
+  end
+
+  alt Coincidencia con alergia severa/mortal (Conflicto detectado)
+    Controller --> UI : SEQ-ALT-01 Alerta crítica: Contraindicación alérgica detectada
+    UI --> Doctor : SEQ-ALT-02 Mostrar alérgeno, nivel de severidad y reacción
+
+    alt Médico decide anular o sustituir medicamento
+      Doctor -> UI : SEQ-OVR-01 Anular prescripción de fármaco riesgoso
+      UI -> Controller : Cancelar emisión actual
+      Controller --> UI : SEQ-EX-03 Prescripción cancelada por seguridad
+      UI --> Doctor : Mostrar cancelación y permitir nuevo fármaco
+    else Médico realiza Override Justificado
+      Doctor -> UI : SEQ-OVR-02 Ingresar justificación clínica de override obligatoria
+      UI -> Controller : SEQ-OVR-03 Enviar override justificado
+      Controller -> Audit : SEQ-AUD-01 Registrar override en prescription_allergy_checks
+      Audit --> Controller : SEQ-AUD-02 Confirmar registro inmutable de auditoría
+      Controller -> PrescRepo : SEQ-SAV-01 Persistir prescripción con estado activo y override
+      PrescRepo --> Controller : SEQ-SAV-02 Retornar prescripción guardada
+      Controller --> UI : SEQ-SAV-03 Notificar emisión autorizada con override
+      UI --> Doctor : Mostrar prescripción emitida y auditada
+    end
+  else Sin alergias coincidentes (Validación limpia)
+    Controller -> Audit : SEQ-AUD-01 Registrar verificación aprobada sin conflicto
+    Audit --> Controller : SEQ-AUD-02 Auditoría registrada
+    Controller -> PrescRepo : SEQ-SAV-01 Persistir prescripción en estado activo
+    PrescRepo --> Controller : SEQ-SAV-02 Retornar prescripción guardada
+    Controller --> UI : SEQ-SAV-03 Notificar emisión exitosa
+    UI --> Doctor : Confirmar prescripción médica creada
+  end
+end
+@enduml
