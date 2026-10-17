@@ -1,0 +1,75 @@
+@startuml
+hide footbox
+skinparam shadowing false
+title ASII-19 - Secuencia de captura y correccion
+actor "Tecnico" as T
+boundary "UI Resultados" as UI
+control "ResultadoService (propuesto)" as S
+control "Acceso HIS" as A
+database "Orden/Resultado" as R
+control "Auditoria" as AU
+actor Bioquimico as B
+T -> UI : SEQ-01 Consultar pendientes
+UI -> S : SEQ-02 listarPendientes()
+S -> A : SEQ-03 autorizar(tenant, permiso)
+alt EX-01 Acceso denegado
+  S --> UI : Sin datos clinicos
+else Autorizado
+  S -> R : buscarPendientes(tenant)
+  S --> UI : FA-01 Lista o vacio
+  T -> UI : SEQ-04 Capturar valor y unidad
+  UI -> S : enviar(datos)
+  S -> R : SEQ-05 verificarOrdenMuestraEstado()
+  alt EX-02 Orden no elegible
+    S --> UI : Rechazo
+  else Elegible
+    S -> S : SEQ-06 validarTipoUnidadCamposRango()
+    alt EX-03 Datos invalidos o fuera de rango
+      S --> UI : Errores; no guardar
+    else Validos
+      group Transaccion atomica
+        S -> R : SEQ-07 guardarResultado(capturado)
+        S -> AU : SEQ-08 auditarCaptura()
+      end
+      alt EX-05 Fallo de guardado o auditoria
+        S -> R : SEQ-09 rollback()
+        S --> UI : Sin confirmacion
+      else Todo correcto
+        S --> UI : SEQ-10 Confirmar captura
+      end
+    end
+  end
+end
+opt Correccion de resultado capturado
+  T -> UI : SEQ-11 Nuevo dato y motivo
+  UI -> S : solicitarCorreccion()
+  S -> A : SEQ-12 autorizar(tenant, permiso)
+  S -> R : SEQ-13 verificarTenantYEstado()
+  alt EX-01/04 Sin permiso o no corregible
+    S --> UI : Denegar o derivar
+  else Elegible
+    S -> S : SEQ-14 validarMotivoDatosYRango()
+    alt EX-03 Datos o motivo invalidos
+      S --> UI : Rechazar sin persistir
+    else Validos
+      group Transaccion atomica
+        S -> R : SEQ-15 nuevaVersionSinSobrescribir()
+        S -> AU : SEQ-16 auditarCorreccion()
+      end
+      alt EX-05 Falla transaccional
+        S -> R : SEQ-17 rollback()
+        S --> UI : Correccion no confirmada
+      else Correcto
+        S --> UI : SEQ-18 Confirmar correccion
+      end
+    end
+  end
+end
+B -> UI : SEQ-19 Consultar resultado
+UI -> A : SEQ-20 autorizarConsulta()
+alt Acceso autorizado
+  UI --> B : Resultado sin validacion clinica
+else Denegado
+  UI --> B : Acceso denegado
+end
+@enduml

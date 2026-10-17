@@ -1,0 +1,55 @@
+@startuml
+skinparam shadowing false
+title ASII-19 - Captura y correccion controlada
+start
+:ACT-01 Consultar pendientes del tenant;
+if (Hay orden pendiente?) then (si)
+  :ACT-02 Ingresar valor, unidad y observacion;
+  :ACT-03 Autorizar y verificar orden, muestra y estado;
+  if (Autorizada y elegible?) then (si)
+    :ACT-04 Validar tipo, unidad, campos y rango;
+    if (Datos validos y dentro de rango?) then (si)
+      :ACT-05 Guardar version y auditar en transaccion;
+      if (Guardado y auditoria correctos?) then (si)
+        :Confirmar estado capturado;
+      else (no)
+        :EX-05 Revertir transaccion y notificar;
+        stop
+      endif
+    else (no)
+      :EX-03 Mostrar errores o fuera de rango;
+      stop
+    endif
+  else (no)
+    :EX-01/02 Denegar o bloquear;
+    stop
+  endif
+else (no)
+  :FA-01 Informar lista vacia;
+  stop
+endif
+if (Tecnico solicita correccion?) then (si)
+  :ACT-06 Introducir motivo y nuevo dato;
+  :ACT-07 Verificar autorizacion, tenant y estado capturado;
+  if (Correccion autorizada y estado valido?) then (si)
+    :ACT-08 Validar motivo, valor, unidad y rango;
+    if (Datos completos y validos?) then (si)
+      :ACT-09 Crear nueva version y auditar en transaccion;
+      if (Guardado y auditoria correctos?) then (si)
+        :Confirmar correccion y preservar version anterior;
+      else (no)
+        :EX-05 Revertir transaccion y notificar;
+        stop
+      endif
+    else (no)
+      :EX-03 Rechazar correccion sin cambios;
+      stop
+    endif
+  else (no)
+    :EX-01/04 Denegar o derivar;
+    stop
+  endif
+endif
+:ACT-10 Bioquimico consulta sin validar;
+stop
+@enduml
