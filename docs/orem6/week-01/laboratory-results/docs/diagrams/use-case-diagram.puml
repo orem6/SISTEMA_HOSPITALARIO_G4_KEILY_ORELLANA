@@ -1,0 +1,34 @@
+@startuml
+left to right direction
+skinparam shadowing false
+title ASII-19 - Casos de uso: resultados pendientes
+actor "Tecnico de laboratorio" as Tecnico
+actor Bioquimico
+actor "Control de acceso HIS" as Acceso
+actor "Auditoria clinica" as Auditoria
+rectangle "ASII-19 - Ingreso de resultados" {
+  usecase "UC-01\nConsultar pendientes" as UC01
+  usecase "UC-02\nCapturar resultado" as UC02
+  usecase "UC-03\nValidar datos" as UC03
+  usecase "UC-04\nGuardar resultado" as UC04
+  usecase "UC-05\nCorregir resultado" as UC05
+  usecase "UC-06\nAuditar operacion" as UC06
+  usecase "UC-07\nConsultar para validacion" as UC07
+  usecase "Autorizar y aislar\npor tenant" as Auth
+}
+Tecnico --> UC01
+Tecnico --> UC02
+Tecnico --> UC04
+Tecnico --> UC05
+Bioquimico --> UC07
+Acceso --> Auth
+Auditoria --> UC06
+UC04 ..> UC02 : <<include>>
+UC04 ..> UC03 : <<include>>
+UC04 ..> Auth : <<include>>
+UC04 ..> UC06 : <<include>>
+UC05 ..> Auth : <<include>>
+UC05 ..> UC03 : <<include>>
+UC05 ..> UC06 : <<include>>
+UC07 ..> Auth : <<include>>
+@enduml
